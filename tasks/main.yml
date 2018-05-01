@@ -1,0 +1,70 @@
+---
+#  - name: Configure Docker http proxy settings with file.
+#    copy:
+#      src: 'http-proxy.conf'
+#      dest: '/etc/systemd/system/docker.service.d/http-proxy.conf'
+#      owner: root
+#      group: root
+#      mode: 0644
+
+- name: "Install docker 1.13"
+  yum:
+    name: docker-1.13.1
+    state: present
+
+- name: "Make sure a docker Volume Group (docker-vg) exists"
+  lvg:
+    vg: docker-vg
+    pvs: /dev/sdb
+    state: present
+
+- name: Remove /etc/sysconfig/docker-storage-setup
+  file:
+    dest: /etc/sysconfig/docker-storage-setup
+    state: absent
+
+- name: Configure /etc/sysconfig/docker-storage-setup
+  lineinfile: 
+    path: /etc/sysconfig/docker-storage-setup
+    create: yes
+    line: "{{ item }}"
+  with_items:
+    - "DEVS=/dev/sdb"
+    - "VG=docker-vg"
+
+- name: "Run docker-storage-setup"
+  shell: "docker-storage-setup"
+
+- name: "Ensure docker is stopped, so that /var/lib/docker can be emptied."
+  service:
+    name: docker
+    state: stopped
+    enabled: yes
+
+- name: "Ensure contents of /var/lib/docker/* is deleted."
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_fileglob:
+    - "/var/lib/docker/*"
+
+
+- name: "Start Docker to re-initialize."
+  service:
+    name: docker
+    state: started
+    enabled: yes
+
+
+#  - name: Pull the required OpenShift Docker Images.
+#    shell: docker pull "{{ item }}"
+#    with_items:
+#      - openshift3/ose-haproxy-router:v3.9.14
+#      - openshift3/ose-deployer:v3.9.14
+#      - openshift3/ose:v3.9.14
+#      - openshift3/ose-docker-registry:v3.9.14
+#      - openshift3/ose-pod:v3.9.14
+#      - openshift3/registry-console:v3.9
+
+
+...
